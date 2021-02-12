@@ -95,6 +95,12 @@ options:
         found.
     type: bool
     default: false
+  state:
+    description:
+      - When I(command=section) whether to ensure the section is present
+        or absent.
+    type: string
+    default: "present"
   type:
     description:
       - Section type for I(command=section), I(command=find) and

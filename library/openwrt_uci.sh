@@ -15,6 +15,7 @@ PARAMS="
     replace/bool//false
     section/str
     set_find/bool//true
+    state/str//present
     type/str
     unique/bool//false
     value/any
@@ -215,6 +216,16 @@ uci_find() {
 }
 
 uci_ensure() {
+    case "$state" in
+        absent)
+            uci_ensure_absent && return 0 || return 1;;
+        present)
+            uci_ensure_present && return 0 || return 1;;
+        *) fail "unknown state: $state";;
+    esac
+}
+
+uci_ensure_present() {
     local keys i c v k t
     [ -n "$name" -o -z "$type" ] || name="$section"
     type="${type:-$section}"
@@ -236,6 +247,23 @@ uci_ensure() {
     }
     [ -z "$_defined_value" ] || uci_set
     _result="$section"
+}
+
+uci_ensure_absent() {
+    local keys i c v k t
+    [ -n "$name" -o -z "$type" ] || name="$section"
+    type="${type:-$section}"
+    [ -n "$config" -a -n "$type" ] ||
+        fail "config, type and name required for $command"
+    
+    [ -n "$name" ] && uci_check_type "$config.$name" "$type" || {
+        [ "$_type_find" = "object" -o -n "$option" ] && uci_find && {
+            [ -z "$name" ] || try uci rename "$config.$section=$name"
+        } || return 0
+    }
+    section="${name:-$_result}"
+    key="$config.$section${option:+.$option}"
+    uci delete "$key" || return 0
 }
 
 uci_cleanup_section() {
@@ -310,7 +338,7 @@ cleanup() {
         changed
         [ "$_ansible_verbosity" -lt 2 ] || {
             local _IFS line
-            _IFS="$IFS"; IFS="$N"; set -- $(uci changes); IFS="$_IFS"
+            _IFS="$IFS"; IFS="$N"; set -- $(uci changes); IFS="$_IFS"        
             json_set_namespace result
             json_add_array changes
             for line; do json_add_string . "$line"; done
